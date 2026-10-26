@@ -162,8 +162,8 @@ and resolves placeholders in JSON string values on each request:
 | `${uuid}` | Fresh random UUID |
 | `${randomString:12}` | 12 random ASCII letters (`A–Z`, `a–z`) |
 | `${randomDigits:8}` | 8 random digits as a JSON string, preserving leading zeros |
-| `${birth_date}` | Random date of birth for a completed age of 18–80 |
-| `${birth_date:18:65}` | Random date of birth for a completed age of 18–65 (inclusive) |
+| `${geboorteDatum}` | Random date of birth for a completed age of 18–80 |
+| `${geboorteDatum:18:65}` | Random date of birth for a completed age of 18–65 (inclusive) |
 
 Random string/digit lengths must be between 1 and 10000. Birth dates use `YYYY-MM-DD`,
 with today calculated in UTC; ages must satisfy `0 <= minAge <= maxAge <= 150`.
@@ -175,7 +175,7 @@ For example, a person request template could contain:
 {
   "first_name": "${randomString:10}",
   "reference": "${randomDigits:8}",
-  "birth_date": "${birth_date:18:65}"
+  "birth_date": "${geboorteDatum:18:65}"
 }
 ```
 
@@ -184,7 +184,7 @@ are not interpolated. Nested objects and arrays are supported. Missing variables
 missing files and invalid typed values raise descriptive errors. Inserted values
 are not recursively interpreted as template expressions. `now`, `datumVandaag`,
 `datumTijdVandaag`, `uuid`, `randomString`,
-`randomDigits`, and `birth_date` are reserved generator names.
+`randomDigits`, and `geboorteDatum` are reserved generator names.
 Only add timestamp/UUID fields where your API accepts them; the example order API
 does not define those fields. Existing DTO-based methods remain available.
 

@@ -1,0 +1,6 @@
+{
+  "name": "${randomString:12}",
+  "digits": "${randomDigits:8}",
+  "birth_date": "${geboorteDatum:18:65}",
+  "nested": ["${geboorteDatum}"]
+}

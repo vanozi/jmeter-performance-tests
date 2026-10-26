@@ -11,6 +11,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -19,6 +22,9 @@ import java.util.function.Function;
 /** Cached JSON structures with whole-value placeholders resolved once per request. */
 public final class JsonTemplates {
   private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final ZoneId DATE_ZONE = ZoneId.of("Europe/Amsterdam");
+  private static final DateTimeFormatter DATE_TIME_FORMAT =
+      DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssxxx");
   private static final ConcurrentMap<String, JsonNode> TEMPLATES = new ConcurrentHashMap<>();
 
   private JsonTemplates() {
@@ -65,8 +71,19 @@ public final class JsonTemplates {
       if (expression.equals("now")) {
         return TextNode.valueOf(Instant.now().toString());
       }
+      if (expression.equals("datumVandaag")) {
+        return TextNode.valueOf(LocalDate.now(DATE_ZONE).toString());
+      }
+      if (expression.equals("datumTijdVandaag")) {
+        return TextNode.valueOf(LocalDate.now(DATE_ZONE).atStartOfDay(DATE_ZONE)
+            .format(DATE_TIME_FORMAT));
+      }
       if (expression.equals("uuid")) {
         return TextNode.valueOf(UUID.randomUUID().toString());
+      }
+      String generated = RandomTemplateValues.generate(expression);
+      if (generated != null) {
+        return TextNode.valueOf(generated);
       }
       String[] parts = expression.split(":", -1);
       String value = variables.apply(parts[0]);

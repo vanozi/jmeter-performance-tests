@@ -4,12 +4,35 @@ import static org.assertj.core.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class JsonTemplatesTest {
   private static final String TEMPLATE = "example/requests/template-test.json";
+
+  @Test
+  void rendersDutchDatePlaceholdersInAmsterdamWithoutCsvValues() {
+    ZoneId zone = ZoneId.of("Europe/Amsterdam");
+    LocalDate before = LocalDate.now(zone);
+    Map<String, String> data = Map.of("NAME", "ok", "COUNT", "1", "ACTIVE", "true");
+    JsonNode result = Json.read(JsonTemplates.render(TEMPLATE, data::get), JsonNode.class);
+    assertThat(result.get("datumVandaag").isTextual()).isTrue();
+    assertThat(result.get("datumVandaag").asText()).matches("\\d{4}-\\d{2}-\\d{2}");
+    assertThat(LocalDate.parse(result.get("datumVandaag").asText()))
+        .isBetween(before, LocalDate.now(zone));
+    String dateTime = result.get("datumTijdVandaag").asText();
+    assertThat(dateTime).matches("\\d{4}-\\d{2}-\\d{2}T00:00:00\\+0[12]:00");
+    OffsetDateTime parsed = OffsetDateTime.parse(dateTime);
+    assertThat(parsed.toLocalDate()).isBetween(before, LocalDate.now(zone));
+    assertThat(parsed.toLocalTime()).isEqualTo(LocalTime.MIDNIGHT);
+    assertThat(parsed.getOffset())
+        .isEqualTo(parsed.toLocalDate().atStartOfDay(zone).getOffset());
+  }
 
   @Test
   void rendersTypedValuesAndEscapesStringsWithoutMutatingTemplate() {
