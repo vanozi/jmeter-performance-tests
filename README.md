@@ -157,12 +157,34 @@ and resolves placeholders in JSON string values on each request:
 | `${QUANTITY:number}` | JSON number |
 | `${IS_PRIORITY:boolean}` | JSON boolean; accepts exactly `true` or `false` |
 | `${now}` | Fresh UTC timestamp in ISO-8601 format |
+| `${datumVandaag}` | Today's date in Europe/Amsterdam, formatted as `YYYY-MM-DD` |
+| `${datumTijdVandaag}` | Midnight today in Europe/Amsterdam, e.g. `2026-10-26T00:00:00+01:00` |
 | `${uuid}` | Fresh random UUID |
+| `${randomString:12}` | 12 random ASCII letters (`A–Z`, `a–z`) |
+| `${randomDigits:8}` | 8 random digits as a JSON string, preserving leading zeros |
+| `${birth_date}` | Random date of birth for a completed age of 18–80 |
+| `${birth_date:18:65}` | Random date of birth for a completed age of 18–65 (inclusive) |
+
+Random string/digit lengths must be between 1 and 10000. Birth dates use `YYYY-MM-DD`,
+with today calculated in UTC; ages must satisfy `0 <= minAge <= maxAge <= 150`.
+Each placeholder generates a fresh value for each request. Values may repeat, and
+two occurrences of a generator within one request are evaluated independently.
+For example, a person request template could contain:
+
+```json
+{
+  "first_name": "${randomString:10}",
+  "reference": "${randomDigits:8}",
+  "birth_date": "${birth_date:18:65}"
+}
+```
 
 Placeholders must occupy the entire string value; object keys and parts of strings
 are not interpolated. Nested objects and arrays are supported. Missing variables,
 missing files and invalid typed values raise descriptive errors. Inserted values
-are not recursively interpreted as template expressions. `now` and `uuid` are reserved.
+are not recursively interpreted as template expressions. `now`, `datumVandaag`,
+`datumTijdVandaag`, `uuid`, `randomString`,
+`randomDigits`, and `birth_date` are reserved generator names.
 Only add timestamp/UUID fields where your API accepts them; the example order API
 does not define those fields. Existing DTO-based methods remain available.
 
@@ -174,7 +196,7 @@ thread-group level, outside nested loops, to retain one row per flow iteration.
 Run the local template and multi-request flow tests without a running API:
 
 ```shell
-mvn "-Dtest=JsonTemplatesTest,PayloadsTest,CsvTemplateFlowTest" test
+mvn "-Dtest=JsonTemplatesTest,RandomTemplateValuesTest,PayloadsTest,CsvTemplateFlowTest" test
 ```
 
 See the [DSL CSV guide](https://abstracta.github.io/jmeter-java-dsl/guide/#csv-as-input-data-for-requests)
