@@ -88,8 +88,8 @@ The files live in `src/test/resources/example/data/`:
 | Thread group | File | Variables used |
 | --- | --- | --- |
 | browsers | `browsers.csv` | `ITEM_ID` selects the item to browse |
-| buyers | `buyers.csv` | `USERNAME`, `PASSWORD` are used to log in |
-| uploaders | `uploaders.csv` | `USERNAME`, `PASSWORD` are used to log in; `MIME_CONTENT_ID` is sent as an upload header |
+| buyers | `buyers.csv` | Login, item ID, customer, quantities, standard and priority order templates |
+| uploaders | `uploaders.csv` | Login, order template and data, upload resource, `MIME_CONTENT_ID` header |
 
 For example, the browsers group is configured like this:
 
@@ -109,14 +109,12 @@ execution time. All requests in that iteration can use the same row. The dataset
 is scoped to its containing thread group, so the browsers' item data does not
 feed the buyers or uploaders.
 
-By default, threads share the file cursor: one browser takes one row and the next
+The example explicitly uses `.sharedIn(Sharing.THREAD_GROUP)`, so threads in each
+group share a file cursor: one browser takes one row and the next
 browser takes the next available row. Thread scheduling determines which thread
 gets which row. At the end of the file, the dataset recycles from the first data
 row, allowing these small example files to support more iterations than rows.
-Placement controls scope; `.sharedIn(...)` separately controls row sharing. If
-you later use the same file in multiple groups, default sharing can share its
-cursor across those groups; use `Sharing.THREAD_GROUP` when each group needs its
-own cursor.
+Each group has its own cursor even if multiple groups later use the same file.
 
 Buyers and uploaders log in on every iteration using that iteration's CSV
 credentials. This keeps the token aligned with the current row. `loginOnce()`
@@ -124,14 +122,60 @@ is still available, but would keep the first login's token even as CSV rows
 advance. CSV credentials replace the `-Dusername` and `-Dpassword` defaults for
 these groups. The sample credentials are placeholders, and repeated rows allow
 the example to use a single test account. Replace them with accounts and item IDs
-that exist in your API. Order payloads still use the defaults in `Payloads`;
-this example does not map CSV values into every request field.
+that exist in your API. Order bodies use the JSON templates selected by each row.
 
 To add columns, add names to the header and values to each row, then pass
 `ref("COLUMN_NAME")` into a sampler or flow. CSV headers are case-sensitive.
 `TestResources.path(...)` resolves each file from the test classpath and fails
-when building the plan if it is missing. Upload file paths remain fixed and are
-also resolved when building the plan.
+when building the plan if it is missing. CSV-selected templates and upload resources
+are resolved at request execution time, when the current row is available.
+
+### Multiple requests using one row
+
+Java flows define the sequence; CSV files define inputs. The buyers flow logs in,
+fetches an item, creates a standard order using `ORDER_TEMPLATE`, then creates a
+priority order using `PRIORITY_ORDER_TEMPLATE`. All use the same row. The uploaders
+flow logs in, creates an order, extracts `ORDER_ID`, and uploads `UPLOAD_FILE` to
+that order. Extracted values stay local to each virtual user.
+
+Templates live in `src/test/resources/example/requests/`. For example:
+
+```json
+{
+  "customer_id": "${CUSTOMER_ID}",
+  "lines": [{"item_id": "${ITEM_ID:number}", "quantity": "${QUANTITY:number}"}],
+  "priority": false
+}
+```
+
+`JsonTemplates.render(path, variables)` parses and caches the template, copies it,
+and resolves placeholders in JSON string values on each request:
+
+| Placeholder | Result |
+| --- | --- |
+| `${CUSTOMER_ID}` | Escaped JSON string from a CSV column or extracted variable |
+| `${QUANTITY:number}` | JSON number |
+| `${IS_PRIORITY:boolean}` | JSON boolean; accepts exactly `true` or `false` |
+| `${now}` | Fresh UTC timestamp in ISO-8601 format |
+| `${uuid}` | Fresh random UUID |
+
+Placeholders must occupy the entire string value; object keys and parts of strings
+are not interpolated. Nested objects and arrays are supported. Missing variables,
+missing files and invalid typed values raise descriptive errors. Inserted values
+are not recursively interpreted as template expressions. `now` and `uuid` are reserved.
+Only add timestamp/UUID fields where your API accepts them; the example order API
+does not define those fields. Existing DTO-based methods remain available.
+
+To add another JSON request, add a template and its CSV path column, then add a
+sampler to the Java flow using a runtime body supplier, as in
+`OrderEndpoints.createOrderFromCsv("ORDER_TEMPLATE")`. Add the dataset once at the
+thread-group level, outside nested loops, to retain one row per flow iteration.
+
+Run the local template and multi-request flow tests without a running API:
+
+```shell
+mvn "-Dtest=JsonTemplatesTest,PayloadsTest,CsvTemplateFlowTest" test
+```
 
 See the [DSL CSV guide](https://abstracta.github.io/jmeter-java-dsl/guide/#csv-as-input-data-for-requests)
 for sharing and end-of-file settings. The API load test remains disabled until

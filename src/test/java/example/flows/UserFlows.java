@@ -59,6 +59,22 @@ public final class UserFlows {
     );
   }
 
+  /** All requests use the row loaded at the start of this thread-group iteration. */
+  public static DslTransactionController placeOrdersFromCsv() {
+    return transaction("place orders from CSV",
+        ItemEndpoints.getItem(common.JmeterVars.ref("ITEM_ID"), false),
+        OrderEndpoints.createOrderFromCsv("ORDER_TEMPLATE"),
+        OrderEndpoints.createOrderFromCsv("PRIORITY_ORDER_TEMPLATE")
+    );
+  }
+
+  public static DslTransactionController placeOrderWithDocumentFromCsv() {
+    return transaction("place order with document",
+        OrderEndpoints.createOrderFromCsv("ORDER_TEMPLATE"),
+        OrderEndpoints.uploadDocumentFromCsv()
+    );
+  }
+
   public static DslTransactionController placePriorityOrder() {
     return transaction("place priority order",
         OrderEndpoints.createOrder(Payloads.createOrder().priority(true))

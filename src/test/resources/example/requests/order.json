@@ -1,0 +1,5 @@
+{
+  "customer_id": "${CUSTOMER_ID}",
+  "lines": [{"item_id": "${ITEM_ID:number}", "quantity": "${QUANTITY:number}"}],
+  "priority": false
+}

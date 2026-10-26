@@ -1,0 +1,8 @@
+{
+  "name": "${NAME}",
+  "count": "${COUNT:number}",
+  "active": "${ACTIVE:boolean}",
+  "nested": ["${NAME}"],
+  "id": "${uuid}",
+  "time": "${now}"
+}

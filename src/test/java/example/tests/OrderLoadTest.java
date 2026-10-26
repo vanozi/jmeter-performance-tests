@@ -19,6 +19,7 @@ import us.abstracta.jmeter.javadsl.core.TestPlanStats;
 import common.TestConfig;
 import common.TestResources;
 import example.flows.UserFlows;
+import us.abstracta.jmeter.javadsl.core.configs.DslCsvDataSet.Sharing;
 
 public class OrderLoadTest {
 
@@ -32,7 +33,7 @@ public class OrderLoadTest {
         threadGroup("browsers")
             .rampToAndHold(10, Duration.ofSeconds(10), Duration.ofSeconds(30))
             .children(
-                csvDataSet(TestResources.path("example/data/browsers.csv")),
+                csvDataSet(TestResources.path("example/data/browsers.csv")).sharedIn(Sharing.THREAD_GROUP),
                 // simulates a user waiting between 1 and 3 seconds before each request
                 uniformRandomTimer(Duration.ofSeconds(1), Duration.ofSeconds(3)),
                 UserFlows.browseItem(ref(ITEM_ID))
@@ -40,19 +41,16 @@ public class OrderLoadTest {
         threadGroup("buyers")
             .rampToAndHold(2, Duration.ofSeconds(5), Duration.ofSeconds(20))
             .children(
-                csvDataSet(TestResources.path("example/data/buyers.csv")),
+                csvDataSet(TestResources.path("example/data/buyers.csv")).sharedIn(Sharing.THREAD_GROUP),
                 // limits all samplers in this group together to 30 samples per minute
                 throughputTimer(30),
                 UserFlows.login(ref("USERNAME"), ref("PASSWORD")),
-                UserFlows.placeOrder(),
-                UserFlows.placePriorityOrder()
+                UserFlows.placeOrdersFromCsv()
             ),
         threadGroup("uploaders", 1, 5,
-            csvDataSet(TestResources.path("example/data/uploaders.csv")),
+            csvDataSet(TestResources.path("example/data/uploaders.csv")).sharedIn(Sharing.THREAD_GROUP),
             UserFlows.login(ref("USERNAME"), ref("PASSWORD")),
-            // any file under src/test/resources
-            UserFlows.placeOrderWithDocument("example/uploads/scan.bin"),
-            UserFlows.placeOrderWithDocument("example/uploads/scan.bin", ref("MIME_CONTENT_ID"))
+            UserFlows.placeOrderWithDocumentFromCsv()
         ),
         // raw request results for analysis in JMeter or another results tool
         jtlWriter("target/jmeter-results.jtl"),
@@ -63,7 +61,7 @@ public class OrderLoadTest {
     assertThat(stats.overall().errorsCount()).isZero();
     assertThat(stats.byLabel("login").sampleTime().perc90())
         .isLessThan(Duration.ofSeconds(1));
-    assertThat(stats.byLabel("place order").sampleTime().perc90())
+    assertThat(stats.byLabel("place orders from CSV").sampleTime().perc90())
         .isLessThan(Duration.ofSeconds(2));
     assertThat(stats.byLabel("GET /api/items/{item_id}").sampleTime().perc90())
         .isLessThan(Duration.ofMillis(500));
