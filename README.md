@@ -83,7 +83,11 @@ Files to upload go anywhere under `src/test/resources`; pass their path relative
 ### File uploads and chunks
 
 `OrderEndpoints.uploadDocument(resourcePath)` and `uploadDocumentFromCsv()` send
-raw `application/octet-stream` bodies. Files up to 100 MB use one HTTP request;
+raw `application/octet-stream` bodies. Every request, including every chunk, sends
+`Authorization: Bearer <ACCESS_TOKEN>` using the current virtual user's token.
+Run `UserFlows.login(...)` first to populate `ACCESS_TOKEN`; missing or blank tokens
+fail the upload before it sends a file. No token parameter is needed on the upload method.
+Files up to 100 MB use one HTTP request;
 larger files use sequential chunks of at most **100,000,000 bytes**, with the
 remaining bytes in the final request. Exact multiples do not add an empty request.
 

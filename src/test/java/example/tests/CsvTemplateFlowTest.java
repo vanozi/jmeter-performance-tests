@@ -23,13 +23,16 @@ class CsvTemplateFlowTest {
   void sharesRowsWithinFlowsAndCorrelatesUploadsAcrossIterations() throws Exception {
     List<JsonNode> orders = new CopyOnWriteArrayList<>();
     List<String> uploads = new CopyOnWriteArrayList<>();
+    List<String> uploadAuthorizations = new CopyOnWriteArrayList<>();
     Map<String, String> customers = new ConcurrentHashMap<>();
     AtomicInteger ids = new AtomicInteger();
     HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     server.createContext("/api/", exchange -> {
       String path = exchange.getRequestURI().getPath();
       String response;
-      if (path.equals("/api/orders")) {
+      if (path.equals("/api/auth/token")) {
+        response = "{\"access_token\":\"local-upload-token\",\"token_type\":\"bearer\"}";
+      } else if (path.equals("/api/orders")) {
         JsonNode order = Json.read(new String(exchange.getRequestBody().readAllBytes(),
             StandardCharsets.UTF_8), JsonNode.class);
         orders.add(order);
@@ -37,6 +40,7 @@ class CsvTemplateFlowTest {
         customers.put(id, order.get("customer_id").asText());
         response = "{\"order_id\":\"" + id + "\"}";
       } else if (path.endsWith("/documents")) {
+        uploadAuthorizations.add(String.valueOf(exchange.getRequestHeaders().getFirst("Authorization")));
         String id = path.split("/")[3];
         String mimeId = exchange.getRequestHeaders().getFirst("mimeContentId");
         byte[] bytes = exchange.getRequestBody().readAllBytes();
@@ -62,10 +66,12 @@ class CsvTemplateFlowTest {
           threadGroup("uploaders", 1, 2,
               csvDataSet(TestResources.path("example/data/uploaders.csv"))
                   .sharedIn(Sharing.THREAD_GROUP),
+              UserFlows.login("test-user", "test-password"),
               UserFlows.placeOrderWithDocumentFromCsv())
       ).run();
       assertThat(stats.overall().errorsCount()).isZero();
       assertThat(orders).hasSize(6);
+      assertThat(uploadAuthorizations).hasSize(2).containsOnly("Bearer local-upload-token");
       for (String customer : List.of("customer-123", "customer-456")) {
         List<JsonNode> customerOrders = orders.stream()
             .filter(o -> o.get("customer_id").asText().equals(customer))

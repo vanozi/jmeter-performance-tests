@@ -39,6 +39,7 @@ final class DocumentUploads {
           s.vars.remove(Vars.MIME_CONTENT_ID);
           s.vars.remove(Vars.DOCUMENT_ID);
           s.vars.remove(CHUNK_PATH);
+          requireAccessToken(s.vars);
           s.vars.putObject(STATE, new State(Path.of(file.apply(s.vars)), chunkBytes));
           s.sampleResult.setIgnore();
         }),
@@ -46,6 +47,7 @@ final class DocumentUploads {
             jsr223Sampler("prepare upload chunk", s -> {
               State state = state(s.vars);
               try {
+                requireAccessToken(s.vars);
                 s.vars.put(CHUNK_PATH, state.prepare().toString());
                 s.sampleResult.setIgnore();
               } catch (Exception e) {
@@ -58,6 +60,7 @@ final class DocumentUploads {
                 httpSampler("POST /api/orders/{order_id}/documents",
                     s -> "/api/orders/" + s.vars.get(Vars.ORDER_ID) + "/documents")
                     .method("POST")
+                    .header("Authorization", "Bearer " + ref(Vars.ACCESS_TOKEN))
                     .contentType(ContentType.APPLICATION_OCTET_STREAM)
                     .bodyFile(ref(CHUNK_PATH))
                     .children(
@@ -105,6 +108,13 @@ final class DocumentUploads {
 
   private static State state(JMeterVariables vars) {
     return (State) vars.getObject(STATE);
+  }
+
+  private static void requireAccessToken(JMeterVariables vars) {
+    String token = vars.get(Vars.ACCESS_TOKEN);
+    if (token == null || token.isBlank()) {
+      throw new IllegalArgumentException("Upload requires ACCESS_TOKEN; log in before uploading");
+    }
   }
 
   private static final class State {

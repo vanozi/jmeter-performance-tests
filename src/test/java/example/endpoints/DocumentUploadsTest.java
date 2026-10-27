@@ -31,6 +31,7 @@ class DocumentUploadsTest {
       try {
         var stats = testPlan(
             httpDefaults().url("http://127.0.0.1:" + server.getAddress().getPort()),
+            vars().set(Vars.ACCESS_TOKEN, "upload-test-token"),
             threadGroup(1, 2, DocumentUploads.upload(v -> file.toString(), 4))
         ).run();
         assertThat(stats.overall().errorsCount()).isZero();
@@ -57,12 +58,14 @@ class DocumentUploadsTest {
     Files.write(fileA, "AAAAAAAAAA".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
     Files.write(fileB, "BBBBBBBBBB".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
     List<String> received = new CopyOnWriteArrayList<>();
+    List<String> authorizations = new CopyOnWriteArrayList<>();
     Map<String, String> ids = new java.util.concurrent.ConcurrentHashMap<>();
     var sequence = new java.util.concurrent.atomic.AtomicInteger();
     HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     server.createContext("/api/orders/", exchange -> {
       byte[] body = exchange.getRequestBody().readAllBytes();
       String user = Character.toString((char) body[0]);
+      authorizations.add(user + ":" + exchange.getRequestHeaders().getFirst("Authorization"));
       String header = exchange.getRequestHeaders().getFirst("mimeContentId");
       String expected;
       if (header == null) {
@@ -82,11 +85,16 @@ class DocumentUploadsTest {
     try {
       var stats = testPlan(
           httpDefaults().url("http://127.0.0.1:" + server.getAddress().getPort()),
-          threadGroup("a", 1, 2, DocumentUploads.upload(v -> fileA.toString(), 4)),
-          threadGroup("b", 1, 2, DocumentUploads.upload(v -> fileB.toString(), 4))
+          threadGroup("a", 1, 2,
+              jsr223Sampler(s -> { s.vars.put(Vars.ACCESS_TOKEN, "token-a"); s.sampleResult.setIgnore(); }),
+              DocumentUploads.upload(v -> fileA.toString(), 4)),
+          threadGroup("b", 1, 2,
+              jsr223Sampler(s -> { s.vars.put(Vars.ACCESS_TOKEN, "token-b"); s.sampleResult.setIgnore(); }),
+              DocumentUploads.upload(v -> fileB.toString(), 4))
       ).run();
       assertThat(stats.overall().errorsCount()).isZero();
       assertThat(received).hasSize(12);
+      assertThat(authorizations).hasSize(12).containsOnly("A:Bearer token-a", "B:Bearer token-b");
       for (String user : List.of("A", "B")) {
         assertThat(received.stream().filter(r -> r.equals(user + ":first")).count()).isEqualTo(2);
         assertThat(received.stream().filter(r -> r.equals(user + ":ok")).count()).isEqualTo(4);
@@ -105,10 +113,30 @@ class DocumentUploadsTest {
       try {
         var stats = testPlan(
             httpDefaults().url("http://127.0.0.1:" + server.getAddress().getPort()),
+            vars().set(Vars.ACCESS_TOKEN, "upload-test-token"),
             threadGroup(1, 1, DocumentUploads.upload(v -> file.toString(), 4))
         ).run();
         assertThat(stats.overall().errorsCount()).isGreaterThan(0);
         assertThat(bodies).hasSize(missingId ? 1 : 2);
+      } finally { server.stop(0); }
+    }
+  }
+
+  @Test
+  void rejectsMissingOrBlankTokenBeforeSendingFile() throws Exception {
+    Path file = directory.resolve("authenticated-file");
+    Files.write(file, new byte[8]);
+    for (String token : new String[]{"", "   "}) {
+      List<byte[]> bodies = new CopyOnWriteArrayList<>();
+      HttpServer server = server(bodies, new CopyOnWriteArrayList<>(), 0, false);
+      try {
+        var stats = testPlan(
+            httpDefaults().url("http://127.0.0.1:" + server.getAddress().getPort()),
+            vars().set(Vars.ACCESS_TOKEN, token),
+            threadGroup(1, 1, DocumentUploads.upload(v -> file.toString(), 4))
+        ).run();
+        assertThat(stats.overall().errorsCount()).isGreaterThan(0);
+        assertThat(bodies).isEmpty();
       } finally { server.stop(0); }
     }
   }
@@ -125,7 +153,8 @@ class DocumentUploadsTest {
       byte[] response = Json.write(missingId ? Map.of("document_id", "doc")
           : Map.of("document_id", "doc", "mimeContentId", "mime-" + index)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
       exchange.getResponseHeaders().set("Content-Type", "application/json");
-      exchange.sendResponseHeaders(bodies.size() == failAt ? 500 : 201, response.length);
+      boolean authorized = "Bearer upload-test-token".equals(exchange.getRequestHeaders().getFirst("Authorization"));
+      exchange.sendResponseHeaders(!authorized ? 401 : bodies.size() == failAt ? 500 : 201, response.length);
       exchange.getResponseBody().write(response);
       exchange.close();
     });
