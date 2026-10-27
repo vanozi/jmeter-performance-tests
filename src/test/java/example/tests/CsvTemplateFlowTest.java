@@ -41,7 +41,7 @@ class CsvTemplateFlowTest {
         String mimeId = exchange.getRequestHeaders().getFirst("mimeContentId");
         byte[] bytes = exchange.getRequestBody().readAllBytes();
         uploads.add(customers.get(id) + ":" + mimeId + ":" + bytes.length);
-        response = Json.write(Map.of("document_id", "doc-1", "mime_content_id", mimeId));
+        response = Json.write(Map.of("document_id", "doc-1", "mimeContentId", "server-mime-" + id));
       } else {
         response = "{\"sku\":\"item-1001\"}";
       }
@@ -80,7 +80,7 @@ class CsvTemplateFlowTest {
       int fileSize = java.nio.file.Files.readAllBytes(java.nio.file.Path.of(
           TestResources.path("example/uploads/scan.bin"))).length;
       assertThat(uploads).containsExactlyInAnyOrder(
-          "customer-123:scan-001:" + fileSize, "customer-456:scan-002:" + fileSize);
+          "customer-123:null:" + fileSize, "customer-456:null:" + fileSize);
     } finally {
       server.stop(0);
     }

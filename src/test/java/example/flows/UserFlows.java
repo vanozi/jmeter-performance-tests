@@ -93,15 +93,4 @@ public final class UserFlows {
     );
   }
 
-  /**
-   * Same as {@link #placeOrderWithDocument(String)}, also sending the mimeContentId header.
-   */
-  public static DslTransactionController placeOrderWithDocument(String resourcePath,
-      String mimeContentId) {
-    return transaction("place order with document",
-        OrderEndpoints.createOrder(),
-        OrderEndpoints.uploadDocument(resourcePath, mimeContentId)
-    );
-  }
-
 }

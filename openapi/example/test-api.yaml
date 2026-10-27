@@ -90,7 +90,7 @@ paths:
       - name: mimeContentId
         in: header
         required: false
-        description: Optional client generated id of the document content, echoed in the response when sent.
+        description: Omit for the first chunk. For subsequent chunks, use mimeContentId from the first JSON response.
         schema:
           type: string
           examples:
@@ -171,7 +171,7 @@ components:
           title: Order Id
           examples:
           - ord-1001-2
-        mime_content_id:
+        mimeContentId:
           type: string
           title: Mime Content Id
           examples:

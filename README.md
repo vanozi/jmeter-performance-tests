@@ -80,6 +80,27 @@ The layers, from bottom to top:
 
 Files to upload go anywhere under `src/test/resources`; pass their path relative to that folder.
 
+### File uploads and chunks
+
+`OrderEndpoints.uploadDocument(resourcePath)` and `uploadDocumentFromCsv()` send
+raw `application/octet-stream` bodies. Files up to 100 MB use one HTTP request;
+larger files use sequential chunks of at most **100,000,000 bytes**, with the
+remaining bytes in the final request. Exact multiples do not add an empty request.
+
+The first request for each file omits the `mimeContentId` header. Its JSON response
+must contain `mimeContentId` when more chunks remain. Every subsequent chunk sends
+that first ID in the `mimeContentId` header, even if a later response returns a
+different ID. The example OpenAPI document uses this camelCase response field.
+IDs are local to the virtual user and reset before each file. `MIME_CONTENT_ID`
+is an extracted runtime variable, not a CSV input column.
+
+A failed request or a missing/invalid first ID stops the remaining chunks and marks
+the upload as failed; chunks are not retried automatically. Each chunk is a separate
+HTTP sample. The `upload document` transaction covers the complete file upload.
+Large files use a reusable temporary chunk file and a 64 KB copy buffer rather than
+loading the whole file into heap memory. The temporary file is removed on completion
+or failure, with JVM-exit cleanup as a fallback for interrupted runs.
+
 ## CSV data inside thread groups
 
 `example/tests/OrderLoadTest` puts a separate `csvDataSet` inside each thread group.
@@ -89,7 +110,7 @@ The files live in `src/test/resources/example/data/`:
 | --- | --- | --- |
 | browsers | `browsers.csv` | `ITEM_ID` selects the item to browse |
 | buyers | `buyers.csv` | Login, item ID, customer, quantities, standard and priority order templates |
-| uploaders | `uploaders.csv` | Login, order template and data, upload resource, `MIME_CONTENT_ID` header |
+| uploaders | `uploaders.csv` | Login, order template and data, upload resource |
 
 For example, the browsers group is configured like this:
 
@@ -196,7 +217,7 @@ thread-group level, outside nested loops, to retain one row per flow iteration.
 Run the local template and multi-request flow tests without a running API:
 
 ```shell
-mvn "-Dtest=JsonTemplatesTest,RandomTemplateValuesTest,PayloadsTest,CsvTemplateFlowTest" test
+mvn "-Dtest=JsonTemplatesTest,RandomTemplateValuesTest,PayloadsTest,CsvTemplateFlowTest,DocumentUploadsTest" test
 ```
 
 See the [DSL CSV guide](https://abstracta.github.io/jmeter-java-dsl/guide/#csv-as-input-data-for-requests)
