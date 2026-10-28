@@ -75,7 +75,7 @@ class DocumentUploadsTest {
         expected = ids.get(user);
       }
       received.add(user + ":" + (header == null ? "first" : header.equals(expected) ? "ok" : "wrong"));
-      byte[] response = Json.write(Map.of("document_id", "doc", "mimeContentId", expected))
+      byte[] response = Json.write(Map.of("mimeContentId", expected))
           .getBytes(java.nio.charset.StandardCharsets.UTF_8);
       exchange.sendResponseHeaders(201, response.length);
       exchange.getResponseBody().write(response);
@@ -150,8 +150,8 @@ class DocumentUploadsTest {
       String header = exchange.getRequestHeaders().getFirst("mimeContentId");
       headers.add(header == null ? "<absent>" : header);
       // Subsequent responses deliberately return different IDs: the first ID must remain in use.
-      byte[] response = Json.write(missingId ? Map.of("document_id", "doc")
-          : Map.of("document_id", "doc", "mimeContentId", "mime-" + index)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+      byte[] response = Json.write(missingId ? Map.of()
+          : Map.of("mimeContentId", "mime-" + index)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
       exchange.getResponseHeaders().set("Content-Type", "application/json");
       boolean authorized = "Bearer upload-test-token".equals(exchange.getRequestHeaders().getFirst("Authorization"));
       exchange.sendResponseHeaders(!authorized ? 401 : bodies.size() == failAt ? 500 : 201, response.length);

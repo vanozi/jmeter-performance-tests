@@ -161,11 +161,6 @@ components:
       title: TokenResponseDto
     DocumentDto:
       properties:
-        document_id:
-          type: string
-          title: Document Id
-          examples:
-          - doc-1
         order_id:
           type: string
           title: Order Id
@@ -183,7 +178,6 @@ components:
           - 64
       type: object
       required:
-      - document_id
       - order_id
       - size_bytes
       title: DocumentDto

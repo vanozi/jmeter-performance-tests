@@ -45,7 +45,7 @@ class CsvTemplateFlowTest {
         String mimeId = exchange.getRequestHeaders().getFirst("mimeContentId");
         byte[] bytes = exchange.getRequestBody().readAllBytes();
         uploads.add(customers.get(id) + ":" + mimeId + ":" + bytes.length);
-        response = Json.write(Map.of("document_id", "doc-1", "mimeContentId", "server-mime-" + id));
+        response = Json.write(Map.of("mimeContentId", "server-mime-" + id));
       } else {
         response = "{\"sku\":\"item-1001\"}";
       }

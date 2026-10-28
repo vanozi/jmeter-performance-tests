@@ -37,7 +37,6 @@ final class DocumentUploads {
           if (previous != null) previous.close();
           s.vars.remove(STATE);
           s.vars.remove(Vars.MIME_CONTENT_ID);
-          s.vars.remove(Vars.DOCUMENT_ID);
           s.vars.remove(CHUNK_PATH);
           requireAccessToken(s.vars);
           s.vars.putObject(STATE, new State(Path.of(file.apply(s.vars)), chunkBytes));
@@ -88,8 +87,6 @@ final class DocumentUploads {
                                 throw new IllegalArgumentException("First upload response is missing mimeContentId");
                               }
                             }
-                            JsonNode documentId = response.get("document_id");
-                            if (documentId != null) s.vars.put(Vars.DOCUMENT_ID, documentId.asText());
                             state.offset += state.currentSize;
                             state.finished = state.offset >= state.size;
                           } catch (Exception e) {
